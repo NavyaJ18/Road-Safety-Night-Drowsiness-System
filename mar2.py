@@ -8,7 +8,7 @@ from collections import deque
 
 
 # ============================================================
-# SETTINGS
+# CONFIGURATION
 # ============================================================
 
 MODEL_PATH = "face_landmarker.task"
@@ -16,34 +16,43 @@ MODEL_PATH = "face_landmarker.task"
 # EAR SETTINGS
 EAR_THRESHOLD = 0.30
 
-# Partial closure threshold
-PARTIAL_EAR_THRESHOLD = 0.35
-
-
-# PERCLOS SETTINGS
-PERCLOS_WINDOW = 90.0
-PERCLOS_THRESHOLD = 80.0
+# Additional threshold for fully closed eyes
+EYES_CLOSED_THRESHOLD = 0.18
 
 
 # MAR SETTINGS
-# USER-APPROVED THRESHOLD
-MAR_THRESHOLD = 20.0
+# This is a normalized MAR threshold.
+# You should calibrate it based on your webcam results.
+MAR_THRESHOLD = 0.60
 
 
-# CSV FILE
-CSV_FILE = "mar_data.csv"
+# PERCLOS SETTINGS
+PERCLOS_WINDOW = 90.0          # 90 seconds
+PERCLOS_THRESHOLD = 80.0       # 80 percent
 
 
-# CAMERA
-CAMERA_INDEX = 0
+# BLINK RATE SETTINGS
+BLINK_RATE_THRESHOLD = 10.0    # 10 blinks per minute
+BLINK_WINDOW = 60.0            # 60 seconds
 
 
 # ============================================================
-# MEDIAPIPE FACE LANDMARKER SETUP
+# CSV SETTINGS
+# ============================================================
+
+# NEW FILE
+CSV_FILE = "drowsiness_rainbow.tsv"
+
+SAVE_INTERVAL = 1.0            # Save every 1 second
+
+
+# ============================================================
+# MEDIAPIPE SETUP
 # ============================================================
 
 BaseOptions = mp.tasks.BaseOptions
 VisionRunningMode = mp.tasks.vision.RunningMode
+
 FaceLandmarker = mp.tasks.vision.FaceLandmarker
 FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
 
@@ -57,13 +66,53 @@ options = FaceLandmarkerOptions(
 )
 
 
-landmarker = FaceLandmarker.create_from_options(options)
+# ============================================================
+# CSV HEADER
+# ============================================================
+
+CSV_HEADER = [
+    "Timestamp",
+    "Left_EAR",
+    "Right_EAR",
+    "Average_EAR",
+    "Eye_Status",
+    "MAR",
+    "MAR_Threshold",
+    "Yawn_Status",
+    "PERCLOS",
+    "Blink_Rate",
+    "Blink_Status",
+    "Drowsiness_Status"
+]
 
 
 # ============================================================
-# EYE LANDMARKS
-#
-# These points are used for EAR calculation.
+# CSV INITIALIZATION
+# ============================================================
+
+# Create a fresh file if it does not exist
+# or if it is empty.
+
+if not os.path.exists(CSV_FILE) or os.path.getsize(CSV_FILE) == 0:
+
+    with open(
+        CSV_FILE,
+        mode="w",
+        newline="",
+        encoding="utf-8"
+    ) as file:
+
+        writer = csv.writer(
+            file,
+            delimiter="\t",
+            lineterminator="\n"
+        )
+
+        writer.writerow(CSV_HEADER)
+
+
+# ============================================================
+# LANDMARK DEFINITIONS
 # ============================================================
 
 LEFT_EYE = [
@@ -88,61 +137,19 @@ RIGHT_EYE = [
 
 # ============================================================
 # MOUTH LANDMARKS
-#
-# IMPORTANT:
-#
-# These are ACTUAL upper and lower lip pairs.
-#
-# We are NOT using points that are all on the upper lip.
-#
-# Each pair represents vertical mouth opening.
 # ============================================================
 
-MOUTH_PAIRS = [
+MOUTH_LEFT = 61
+MOUTH_RIGHT = 291
 
-    # Outer mouth pairs
-    (13, 14),
+UPPER_LIP_1 = 13
+LOWER_LIP_1 = 14
 
-    # Inner mouth pairs
-    (82, 87),
-    (81, 88),
-    (80, 191),
+UPPER_LIP_2 = 82
+LOWER_LIP_2 = 87
 
-    # Wider opening measurement
-    (312, 317)
-]
-
-
-# ============================================================
-# PERCLOS DATA STORAGE
-# ============================================================
-
-perclos_data = deque()
-
-
-# ============================================================
-# CSV SETUP
-# ============================================================
-
-if not os.path.exists(CSV_FILE):
-
-    with open(
-        CSV_FILE,
-        mode="w",
-        newline=""
-    ) as file:
-
-        writer = csv.writer(file)
-
-        writer.writerow([
-            "Timestamp",
-            "EAR",
-            "Eye_Status",
-            "MAR",
-            "Mouth_Status",
-            "PERCLOS",
-            "Drowsiness_Status"
-        ])
+UPPER_LIP_3 = 312
+LOWER_LIP_3 = 317
 
 
 # ============================================================
@@ -160,249 +167,115 @@ def distance(p1, p2):
 # EAR CALCULATION
 # ============================================================
 
-def calculate_ear(landmarks, eye_points, frame_width, frame_height):
+def calculate_ear(landmarks, eye_points):
 
-    points = []
-
-    for index in eye_points:
-
-        x = landmarks[index].x * frame_width
-        y = landmarks[index].y * frame_height
-
-        points.append((x, y))
+    p1 = landmarks[eye_points[0]]
+    p2 = landmarks[eye_points[1]]
+    p3 = landmarks[eye_points[2]]
+    p4 = landmarks[eye_points[3]]
+    p5 = landmarks[eye_points[4]]
+    p6 = landmarks[eye_points[5]]
 
 
-    # Vertical distances
-    A = distance(points[1], points[5])
+    # Standard Eye Aspect Ratio formula
+    #
+    # EAR =
+    # (|p2-p6| + |p3-p5|)
+    # --------------------
+    #      2|p1-p4|
 
-    B = distance(points[2], points[4])
+    vertical_1 = distance(p2, p6)
+
+    vertical_2 = distance(p3, p5)
+
+    horizontal = distance(p1, p4)
 
 
-    # Horizontal distance
-    C = distance(points[0], points[3])
+    if horizontal == 0:
+
+        return 0.0
 
 
-    if C == 0:
-        return 0
-
-
-    # EAR FORMULA
-    ear = (A + B) / (2.0 * C)
+    ear = (
+        vertical_1 + vertical_2
+    ) / (
+        2.0 * horizontal
+    )
 
 
     return ear
 
 
 # ============================================================
-# ================= MAR CALCULATION ==========================
+# MAR CALCULATION
 # ============================================================
 
-def calculate_mar(
-    landmarks,
-    frame_width,
-    frame_height
-):
+def calculate_mar(landmarks):
 
     """
-    MAR is calculated from actual upper-lip to lower-lip pairs.
+    Normalized Mouth Aspect Ratio.
 
-    Step 1:
-        Calculate vertical pixel distance for each mouth pair.
-
-    Step 2:
-        Calculate the average mouth opening.
-
-    Step 3:
-        Normalize using mouth width.
-
-    Step 4:
-        Scale by 100.
-
-    This creates a practical MAR scale where:
-
-        MAR > 20  --> YAWNING
-
-    IMPORTANT:
-    We do NOT simply sum raw pixel distances because
-    camera resolution and face distance would make the
-    result inconsistent.
+    MAR =
+    average vertical mouth opening
+    --------------------------------
+    mouth width
     """
 
 
-    vertical_distances = []
-
-
-    # --------------------------------------------------------
-    # Calculate mouth opening distances
-    # --------------------------------------------------------
-
-    for upper_index, lower_index in MOUTH_PAIRS:
-
-        upper_x = (
-            landmarks[upper_index].x
-            * frame_width
-        )
-
-        upper_y = (
-            landmarks[upper_index].y
-            * frame_height
-        )
-
-
-        lower_x = (
-            landmarks[lower_index].x
-            * frame_width
-        )
-
-        lower_y = (
-            landmarks[lower_index].y
-            * frame_height
-        )
-
-
-        upper_point = (
-            upper_x,
-            upper_y
-        )
-
-        lower_point = (
-            lower_x,
-            lower_y
-        )
-
-
-        opening_distance = distance(
-            upper_point,
-            lower_point
-        )
-
-
-        vertical_distances.append(
-            opening_distance
-        )
-
-
-    # --------------------------------------------------------
-    # Average vertical mouth opening
-    # --------------------------------------------------------
-
-    average_opening = np.mean(
-        vertical_distances
+    opening_1 = distance(
+        landmarks[UPPER_LIP_1],
+        landmarks[LOWER_LIP_1]
     )
 
 
-    # --------------------------------------------------------
-    # MOUTH WIDTH
-    #
-    # Used for normalization so that MAR does not depend
-    # strongly on how close the face is to the camera.
-    # --------------------------------------------------------
-
-    left_corner = (
-        landmarks[61].x * frame_width,
-        landmarks[61].y * frame_height
+    opening_2 = distance(
+        landmarks[UPPER_LIP_2],
+        landmarks[LOWER_LIP_2]
     )
 
 
-    right_corner = (
-        landmarks[291].x * frame_width,
-        landmarks[291].y * frame_height
+    opening_3 = distance(
+        landmarks[UPPER_LIP_3],
+        landmarks[LOWER_LIP_3]
     )
+
+
+    average_opening = (
+        opening_1 +
+        opening_2 +
+        opening_3
+    ) / 3.0
 
 
     mouth_width = distance(
-        left_corner,
-        right_corner
+        landmarks[MOUTH_LEFT],
+        landmarks[MOUTH_RIGHT]
     )
 
 
     if mouth_width == 0:
 
-        return 0
+        return 0.0
 
 
-    # --------------------------------------------------------
-    # FINAL MAR CALCULATION
-    #
-    # Normalized mouth opening × 100
-    #
-    # THIS IS THE MAIN MAR CALCULATION LINE
-    # --------------------------------------------------------
-
-    mar = (
-        average_opening
-        / mouth_width
-    ) * 100
+    mar = average_opening / mouth_width
 
 
     return mar
 
 
 # ============================================================
-# PERCLOS CALCULATION
-# ============================================================
-
-def calculate_perclos():
-
-    current_time = time.time()
-
-
-    # Remove data older than 90 seconds
-    while (
-        len(perclos_data) > 0
-        and
-        current_time
-        - perclos_data[0][0]
-        > PERCLOS_WINDOW
-    ):
-
-        perclos_data.popleft()
-
-
-    if len(perclos_data) == 0:
-
-        return 0
-
-
-    closed_count = 0
-
-
-    for timestamp, eye_closed in perclos_data:
-
-        if eye_closed:
-
-            closed_count += 1
-
-
-    perclos = (
-        closed_count
-        / len(perclos_data)
-    ) * 100
-
-
-    return perclos
-
-
-# ============================================================
 # DRAW TEXT FUNCTION
-#
-# No background rectangle behind text.
 # ============================================================
 
-def draw_text(
-    frame,
-    text,
-    position,
-    color,
-    scale=0.7
-):
+def draw_text(frame, text, position, color):
 
     cv2.putText(
         frame,
         text,
         position,
         cv2.FONT_HERSHEY_SIMPLEX,
-        scale,
+        0.65,
         color,
         2,
         cv2.LINE_AA
@@ -410,299 +283,479 @@ def draw_text(
 
 
 # ============================================================
-# CAMERA INITIALIZATION
+# MAIN PROGRAM
 # ============================================================
 
-cap = cv2.VideoCapture(
-    CAMERA_INDEX
-)
+cap = cv2.VideoCapture(0)
 
 
 if not cap.isOpened():
 
-    print(
-        "ERROR: Cannot open camera."
-    )
+    print("ERROR: Cannot access webcam.")
 
     exit()
 
 
+print("Webcam started...")
+print("Saving data to:", os.path.abspath(CSV_FILE))
+
+
 # ============================================================
-# MAIN PROGRAM
+# PERCLOS DATA
 # ============================================================
 
-previous_csv_time = 0
+# Stores:
+# (timestamp, eyes_closed_boolean)
+
+perclos_data = deque()
 
 
-print(
-    "Drowsiness Detection Started"
-)
+# ============================================================
+# BLINK RATE DATA
+# ============================================================
 
-print(
-    "Press Q to quit."
-)
+# Stores timestamps of complete blinks.
 
-
-while True:
+blink_data = deque()
 
 
-    # --------------------------------------------------------
-    # READ CAMERA FRAME
-    # --------------------------------------------------------
+# Used to detect one complete blink.
+#
+# False = eyes were previously open
+# True  = eyes were previously closed
 
-    success, frame = cap.read()
-
-
-    if not success:
-
-        print(
-            "Failed to read camera."
-        )
-
-        break
+previous_eyes_closed = False
 
 
-    # --------------------------------------------------------
-    # FLIP FRAME
-    # --------------------------------------------------------
+# ============================================================
+# CSV SAVING TIMER
+# ============================================================
 
-    frame = cv2.flip(
-        frame,
-        1
-    )
+last_save_time = 0
 
 
-    frame_height, frame_width = (
-        frame.shape[:2]
-    )
+# ============================================================
+# VIDEO TIMESTAMP
+# ============================================================
+
+start_time = time.time()
 
 
-    # --------------------------------------------------------
-    # CONVERT BGR TO RGB
-    # --------------------------------------------------------
+# ============================================================
+# CREATE FACE LANDMARKER
+# ============================================================
 
-    rgb_frame = cv2.cvtColor(
-        frame,
-        cv2.COLOR_BGR2RGB
-    )
+with FaceLandmarker.create_from_options(options) as landmarker:
 
 
-    # --------------------------------------------------------
-    # CREATE MEDIAPIPE IMAGE
-    # --------------------------------------------------------
-
-    mp_image = mp.Image(
-        image_format=mp.ImageFormat.SRGB,
-        data=rgb_frame
-    )
+    while True:
 
 
-    # --------------------------------------------------------
-    # TIMESTAMP
-    # --------------------------------------------------------
-
-    timestamp_ms = int(
-        time.time() * 1000
-    )
+        success, frame = cap.read()
 
 
-    # --------------------------------------------------------
-    # FACE LANDMARK DETECTION
-    # --------------------------------------------------------
+        if not success:
 
-    detection_result = landmarker.detect_for_video(
-        mp_image,
-        timestamp_ms
-    )
+            print("ERROR: Cannot read webcam.")
+
+            break
 
 
-    # Default values
-    ear = 0
-    mar = 0
-    perclos = 0
+        # ----------------------------------------------------
+        # MIRROR FRAME
+        # ----------------------------------------------------
 
-    eye_status = "NO FACE"
-    mouth_status = "NO FACE"
-
-    drowsiness_status = (
-        "NO FACE DETECTED"
-    )
+        frame = cv2.flip(frame, 1)
 
 
-    # ========================================================
-    # IF FACE DETECTED
-    # ========================================================
-
-    if detection_result.face_landmarks:
+        frame_height, frame_width = frame.shape[:2]
 
 
-        landmarks = (
-            detection_result
-            .face_landmarks[0]
+        # ----------------------------------------------------
+        # CURRENT TIME
+        # ----------------------------------------------------
+
+        current_time = time.time()
+
+        elapsed_time = current_time - start_time
+
+
+        # ----------------------------------------------------
+        # CONVERT IMAGE FOR MEDIAPIPE
+        # ----------------------------------------------------
+
+        rgb_frame = cv2.cvtColor(
+            frame,
+            cv2.COLOR_BGR2RGB
         )
 
 
-        # ====================================================
-        # LEFT EAR
-        # ====================================================
-
-        left_ear = calculate_ear(
-            landmarks,
-            LEFT_EYE,
-            frame_width,
-            frame_height
+        mp_image = mp.Image(
+            image_format=mp.ImageFormat.SRGB,
+            data=rgb_frame
         )
 
 
-        # ====================================================
-        # RIGHT EAR
-        # ====================================================
-
-        right_ear = calculate_ear(
-            landmarks,
-            RIGHT_EYE,
-            frame_width,
-            frame_height
+        timestamp_ms = int(
+            elapsed_time * 1000
         )
 
 
+        # ----------------------------------------------------
+        # FACE DETECTION
+        # ----------------------------------------------------
+
+        result = landmarker.detect_for_video(
+            mp_image,
+            timestamp_ms
+        )
+
+
+        # ----------------------------------------------------
+        # DEFAULT VALUES
+        # ----------------------------------------------------
+
+        left_ear = 0.0
+        right_ear = 0.0
+        average_ear = 0.0
+        mar = 0.0
+        perclos = 0.0
+        blink_rate = 0.0
+
+        eye_status = "NO FACE"
+        yawn_status = "NO YAWN"
+        blink_status = "NO DATA"
+        drowsiness_status = "NORMAL"
+
+        eyes_closed = False
+
+
         # ====================================================
-        # FINAL EAR
+        # FACE DETECTED
         # ====================================================
 
-        ear = (
-            left_ear
-            + right_ear
-        ) / 2
+        if result.face_landmarks:
 
 
-        # ====================================================
-        # EYE STATUS
-        #
-        # EAR >= 0.35
-        #       EYES OPEN
-        #
-        # 0.30 <= EAR < 0.35
-        #       PARTIALLY CLOSED
-        #
-        # EAR < 0.30
-        #       EYES CLOSED
-        #
-        # USER'S MAIN THRESHOLD = 0.30
-        # ====================================================
+            face_landmarks = result.face_landmarks[0]
 
-        if ear >= PARTIAL_EAR_THRESHOLD:
 
-            eye_status = (
-                "EYES OPEN"
+            # ------------------------------------------------
+            # CONVERT NORMALIZED LANDMARKS TO PIXELS
+            # ------------------------------------------------
+
+            landmarks = []
+
+
+            for landmark in face_landmarks:
+
+                x = landmark.x * frame_width
+                y = landmark.y * frame_height
+
+                landmarks.append(
+                    (x, y)
+                )
+
+
+            # ------------------------------------------------
+            # LEFT EAR
+            # ------------------------------------------------
+
+            left_ear = calculate_ear(
+                landmarks,
+                LEFT_EYE
             )
+
+
+            # ------------------------------------------------
+            # RIGHT EAR
+            # ------------------------------------------------
+
+            right_ear = calculate_ear(
+                landmarks,
+                RIGHT_EYE
+            )
+
+
+            # ------------------------------------------------
+            # AVERAGE EAR
+            # ------------------------------------------------
+
+            average_ear = (
+                left_ear +
+                right_ear
+            ) / 2.0
+
+
+            # ------------------------------------------------
+            # MAR
+            # ------------------------------------------------
+
+            mar = calculate_mar(
+                landmarks
+            )
+
+
+            # =================================================
+            # EYE STATUS
+            # =================================================
+
+            if average_ear >= EAR_THRESHOLD:
+
+                eye_status = "EYES OPEN"
+
+                eye_color = (
+                    0,
+                    255,
+                    0
+                )
+
+                eyes_closed = False
+
+
+            elif average_ear >= EYES_CLOSED_THRESHOLD:
+
+                eye_status = "PARTIALLY CLOSED"
+
+                eye_color = (
+                    0,
+                    165,
+                    255
+                )
+
+                eyes_closed = False
+
+
+            else:
+
+                eye_status = "EYES CLOSED"
+
+                eye_color = (
+                    0,
+                    0,
+                    255
+                )
+
+                eyes_closed = True
+
+
+            # =================================================
+            # BLINK DETECTION
+            # =================================================
+
+            # Complete blink:
+            #
+            # OPEN → CLOSED → OPEN
+
+            if previous_eyes_closed and not eyes_closed:
+
+                blink_data.append(
+                    elapsed_time
+                )
+
+
+            previous_eyes_closed = eyes_closed
+
+
+            # =================================================
+            # YAWN STATUS
+            # =================================================
+
+            if mar >= MAR_THRESHOLD:
+
+                yawn_status = "YAWNING"
+
+                yawn_color = (
+                    0,
+                    0,
+                    255
+                )
+
+
+            else:
+
+                yawn_status = "NO YAWN"
+
+                yawn_color = (
+                    0,
+                    255,
+                    0
+                )
+
+
+            # =================================================
+            # DRAW EYE LANDMARKS
+            # =================================================
+
+            for point in LEFT_EYE:
+
+                x, y = landmarks[point]
+
+                cv2.circle(
+                    frame,
+                    (int(x), int(y)),
+                    2,
+                    eye_color,
+                    -1
+                )
+
+
+            for point in RIGHT_EYE:
+
+                x, y = landmarks[point]
+
+                cv2.circle(
+                    frame,
+                    (int(x), int(y)),
+                    2,
+                    eye_color,
+                    -1
+                )
+
+
+            # =================================================
+            # DRAW MOUTH LANDMARKS
+            # =================================================
+
+            mouth_points = [
+
+                MOUTH_LEFT,
+                MOUTH_RIGHT,
+
+                UPPER_LIP_1,
+                LOWER_LIP_1,
+
+                UPPER_LIP_2,
+                LOWER_LIP_2,
+
+                UPPER_LIP_3,
+                LOWER_LIP_3
+
+            ]
+
+
+            for point in mouth_points:
+
+                x, y = landmarks[point]
+
+                cv2.circle(
+                    frame,
+                    (int(x), int(y)),
+                    2,
+                    yawn_color,
+                    -1
+                )
+
+
+        else:
 
             eye_color = (
-                0,
                 255,
-                0
+                255,
+                255
             )
 
+            yawn_color = (
+                255,
+                255,
+                255
+            )
 
-        elif (
-            ear >= EAR_THRESHOLD
-            and
-            ear < PARTIAL_EAR_THRESHOLD
+            blink_status = "NO FACE"
+
+            previous_eyes_closed = False
+
+
+        # ====================================================
+        # BLINK RATE CALCULATION
+        # ====================================================
+
+        while (
+            blink_data
+            and elapsed_time - blink_data[0] > BLINK_WINDOW
         ):
 
-            eye_status = (
-                "PARTIALLY CLOSED"
-            )
+            blink_data.popleft()
 
-            eye_color = (
+
+        # Since the window is exactly 60 seconds,
+        # number of blinks = blinks per minute.
+
+        blink_rate = float(
+            len(blink_data)
+        )
+
+
+        if blink_rate < BLINK_RATE_THRESHOLD:
+
+            blink_status = "LOW BLINK RATE"
+
+            blink_color = (
                 0,
-                255,
+                0,
                 255
             )
 
 
         else:
 
-            eye_status = (
-                "EYES CLOSED"
-            )
+            blink_status = "NORMAL BLINK RATE"
 
-            eye_color = (
+            blink_color = (
                 0,
-                0,
-                255
+                255,
+                0
             )
 
 
         # ====================================================
-        # ADD DATA FOR PERCLOS
-        #
-        # Closed = EAR < 0.30
+        # PERCLOS CALCULATION
         # ====================================================
-
-        is_eye_closed = (
-            ear < EAR_THRESHOLD
-        )
-
 
         perclos_data.append(
             (
-                time.time(),
-                is_eye_closed
+                elapsed_time,
+                eyes_closed
             )
         )
 
 
-        # ====================================================
-        # CALCULATE PERCLOS
-        # ====================================================
+        # Remove data older than 90 seconds.
 
-        perclos = calculate_perclos()
+        while (
+            perclos_data
+            and
+            elapsed_time - perclos_data[0][0]
+            > PERCLOS_WINDOW
+        ):
 
-
-        # ====================================================
-        # CALCULATE MAR
-        # ====================================================
-
-        mar = calculate_mar(
-            landmarks,
-            frame_width,
-            frame_height
-        )
+            perclos_data.popleft()
 
 
-        # ====================================================
-        # MOUTH / YAWN STATUS
-        #
-        # USER-APPROVED RULE:
-        #
-        # MAR > 20 --> YAWNING
-        # ====================================================
+        if len(perclos_data) > 0:
 
-        if mar > MAR_THRESHOLD:
+            closed_count = sum(
 
-            mouth_status = (
-                "YAWNING"
+                1
+                for timestamp, closed
+                in perclos_data
+
+                if closed
+
             )
 
-            mouth_color = (
-                0,
-                0,
-                255
-            )
+
+            perclos = (
+
+                closed_count /
+                len(perclos_data)
+
+            ) * 100.0
 
 
         else:
 
-            mouth_status = (
-                "NOT YAWNING"
-            )
-
-            mouth_color = (
-                0,
-                255,
-                0
-            )
+            perclos = 0.0
 
 
         # ====================================================
@@ -711,9 +764,7 @@ while True:
 
         if perclos >= PERCLOS_THRESHOLD:
 
-            drowsiness_status = (
-                "DROWSY - HIGH PERCLOS"
-            )
+            drowsiness_status = "DROWSY"
 
             drowsiness_color = (
                 0,
@@ -722,11 +773,9 @@ while True:
             )
 
 
-        elif eye_status == "EYES CLOSED":
+        elif eyes_closed:
 
-            drowsiness_status = (
-                "EYES CLOSED"
-            )
+            drowsiness_status = "EYES CLOSED"
 
             drowsiness_color = (
                 0,
@@ -735,11 +784,9 @@ while True:
             )
 
 
-        elif mouth_status == "YAWNING":
+        elif yawn_status == "YAWNING":
 
-            drowsiness_status = (
-                "YAWNING DETECTED"
-            )
+            drowsiness_status = "YAWNING DETECTED"
 
             drowsiness_color = (
                 0,
@@ -750,9 +797,7 @@ while True:
 
         else:
 
-            drowsiness_status = (
-                "ALERT"
-            )
+            drowsiness_status = "NORMAL"
 
             drowsiness_color = (
                 0,
@@ -762,277 +807,196 @@ while True:
 
 
         # ====================================================
-        # DRAW EYE LANDMARKS
+        # DISPLAY VALUES
         # ====================================================
 
-        for index in LEFT_EYE:
-
-            x = int(
-                landmarks[index].x
-                * frame_width
-            )
-
-            y = int(
-                landmarks[index].y
-                * frame_height
-            )
-
-            cv2.circle(
-                frame,
-                (x, y),
-                2,
-                eye_color,
-                -1
-            )
+        draw_text(
+            frame,
+            f"LEFT EAR: {left_ear:.3f}",
+            (20, 35),
+            eye_color
+        )
 
 
-        for index in RIGHT_EYE:
+        draw_text(
+            frame,
+            f"RIGHT EAR: {right_ear:.3f}",
+            (20, 65),
+            eye_color
+        )
 
-            x = int(
-                landmarks[index].x
-                * frame_width
-            )
 
-            y = int(
-                landmarks[index].y
-                * frame_height
-            )
+        draw_text(
+            frame,
+            f"AVERAGE EAR: {average_ear:.3f}",
+            (20, 95),
+            eye_color
+        )
 
-            cv2.circle(
-                frame,
-                (x, y),
-                2,
-                eye_color,
-                -1
-            )
+
+        draw_text(
+            frame,
+            f"EYE STATUS: {eye_status}",
+            (20, 125),
+            eye_color
+        )
+
+
+        draw_text(
+            frame,
+            f"MAR: {mar:.3f}",
+            (20, 170),
+            yawn_color
+        )
+
+
+        draw_text(
+            frame,
+            f"YAWN STATUS: {yawn_status}",
+            (20, 200),
+            yawn_color
+        )
+
+
+        draw_text(
+            frame,
+            f"PERCLOS (90s): {perclos:.2f}%",
+            (20, 245),
+            drowsiness_color
+        )
 
 
         # ====================================================
-        # DRAW MOUTH PAIRS
+        # BLINK RATE DISPLAY
         # ====================================================
 
-        for upper_index, lower_index in MOUTH_PAIRS:
-
-
-            x1 = int(
-                landmarks[upper_index].x
-                * frame_width
-            )
-
-            y1 = int(
-                landmarks[upper_index].y
-                * frame_height
-            )
-
-
-            x2 = int(
-                landmarks[lower_index].x
-                * frame_width
-            )
-
-            y2 = int(
-                landmarks[lower_index].y
-                * frame_height
-            )
-
-
-            cv2.circle(
-                frame,
-                (x1, y1),
-                2,
-                mouth_color,
-                -1
-            )
-
-
-            cv2.circle(
-                frame,
-                (x2, y2),
-                2,
-                mouth_color,
-                -1
-            )
-
-
-            cv2.line(
-                frame,
-                (x1, y1),
-                (x2, y2),
-                mouth_color,
-                1
-            )
-
-
-    # ========================================================
-    # DISPLAY VALUES
-    #
-    # NO BACKGROUND BOXES
-    # ========================================================
-
-    draw_text(
-        frame,
-        f"EAR: {ear:.3f}",
-        (30, 40),
-        (255, 255, 255)
-    )
-
-
-    # Eye status
-    if eye_status == "EYES OPEN":
-
-        display_eye_color = (
-            0,
-            255,
-            0
+        draw_text(
+            frame,
+            f"BLINK RATE: {blink_rate:.1f}/min",
+            (20, 305),
+            blink_color
         )
 
 
-    elif eye_status == "PARTIALLY CLOSED":
-
-        display_eye_color = (
-            0,
-            255,
-            255
+        draw_text(
+            frame,
+            f"BLINK STATUS: {blink_status}",
+            (20, 335),
+            blink_color
         )
 
 
-    else:
-
-        display_eye_color = (
-            0,
-            0,
-            255
+        draw_text(
+            frame,
+            f"STATUS: {drowsiness_status}",
+            (20, 375),
+            drowsiness_color
         )
 
 
-    draw_text(
-        frame,
-        f"Eye Status: {eye_status}",
-        (30, 75),
-        display_eye_color
-    )
+        # ====================================================
+        # SAVE DATA EVERY SECOND
+        # ====================================================
+
+        if current_time - last_save_time >= SAVE_INTERVAL:
 
 
-    # MAR
-    draw_text(
-        frame,
-        f"MAR: {mar:.2f}",
-        (30, 110),
-        (255, 255, 255)
-    )
-
-
-    # Mouth status
-    if mouth_status == "YAWNING":
-
-        display_mouth_color = (
-            0,
-            0,
-            255
-        )
-
-    else:
-
-        display_mouth_color = (
-            0,
-            255,
-            0
-        )
-
-
-    draw_text(
-        frame,
-        f"Mouth Status: {mouth_status}",
-        (30, 145),
-        display_mouth_color
-    )
-
-
-    # PERCLOS
-    draw_text(
-        frame,
-        f"PERCLOS (90s): {perclos:.2f}%",
-        (30, 180),
-        (255, 255, 255)
-    )
-
-
-    # Drowsiness status
-    draw_text(
-        frame,
-        f"Status: {drowsiness_status}",
-        (30, 215),
-        drowsiness_color
-    )
-
-
-    # ========================================================
-    # SAVE DATA TO CSV
-    #
-    # Saves approximately once per second
-    # ========================================================
-
-    current_time = time.time()
-
-
-    if (
-        current_time
-        - previous_csv_time
-        >= 1
-    ):
-
-
-        with open(
-            CSV_FILE,
-            mode="a",
-            newline=""
-        ) as file:
-
-
-            writer = csv.writer(
-                file
+            timestamp_string = time.strftime(
+                "%Y-%m-%d %H:%M:%S"
             )
 
 
-            writer.writerow([
-                time.strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                ),
-                round(ear, 4),
+            # =================================================
+            # EXACT 12-COLUMN ROW
+            # =================================================
+
+            csv_row = [
+
+                timestamp_string,
+
+                round(left_ear, 4),
+
+                round(right_ear, 4),
+
+                round(average_ear, 4),
+
                 eye_status,
-                round(mar, 2),
-                mouth_status,
+
+                round(mar, 4),
+
+                round(MAR_THRESHOLD, 2),
+
+                yawn_status,
+
                 round(perclos, 2),
+
+                round(blink_rate, 2),
+
+                blink_status,
+
                 drowsiness_status
-            ])
+
+            ]
 
 
-        previous_csv_time = (
-            current_time
+            # =================================================
+            # SAFETY CHECK
+            # =================================================
+
+            if len(csv_row) != len(CSV_HEADER):
+
+                print(
+                    "ERROR: CSV column mismatch!"
+                )
+
+
+            else:
+
+                # TAB is the delimiter.
+                # This is what Rainbow CSV will use
+                # to identify each individual column.
+
+                with open(
+                    CSV_FILE,
+                    mode="a",
+                    newline="",
+                    encoding="utf-8"
+                ) as file:
+
+                    writer = csv.writer(
+                        file,
+                        delimiter="\t",
+                        lineterminator="\n"
+                    )
+
+                    writer.writerow(
+                        csv_row
+                    )
+
+
+            last_save_time = current_time
+
+
+        # ====================================================
+        # SHOW WINDOW
+        # ====================================================
+
+        cv2.imshow(
+            "Drowsiness Detection System",
+            frame
         )
 
 
-    # ========================================================
-    # SHOW FRAME
-    # ========================================================
+        # ====================================================
+        # EXIT
+        # ====================================================
 
-    cv2.imshow(
-        "Drowsiness Detection",
-        frame
-    )
+        key = cv2.waitKey(1) & 0xFF
 
 
-    # ========================================================
-    # PRESS Q TO EXIT
-    # ========================================================
+        if key == ord("q"):
 
-    if (
-        cv2.waitKey(1)
-        & 0xFF
-        == ord("q")
-    ):
-
-        break
+            break
 
 
 # ============================================================
@@ -1043,13 +1007,10 @@ cap.release()
 
 cv2.destroyAllWindows()
 
-landmarker.close()
 
-
-print(
-    "Program stopped."
-)
+print("Program stopped.")
 
 print(
-    f"Data saved in {CSV_FILE}"
+    f"Data saved successfully in: "
+    f"{os.path.abspath(CSV_FILE)}"
 )
