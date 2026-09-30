@@ -37,6 +37,8 @@ Current threshold:
 EAR Threshold = 0.30
 
 ---
+```markdown
+---
 
 ## 🔧 Current System Components
 
