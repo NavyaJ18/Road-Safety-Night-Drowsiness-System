@@ -94,6 +94,24 @@ The system monitors transitions between eye states to identify blink events.
 A blink is detected when the eye state changes from open to closed and subsequently returns to open.
 
 The detected blink events are maintained over a rolling time window.
+---
+
+## 🧠 Drowsiness Classification
+
+The system combines multiple detected parameters to determine the current behavioural status.
+
+The current classification logic prioritizes prolonged eye closure and then evaluates other detected conditions.
+
+### Current Status Categories
+
+- `NORMAL`
+- `EYES CLOSED`
+- `YAWNING DETECTED`
+- `DROWSY`
+
+PERCLOS is used as a longer-duration indicator, while EAR provides instantaneous eye-state information.
+
+The classification is intended as a project-level detection mechanism and is not a medical diagnostic system.
 
 ### Current Configuration
 
