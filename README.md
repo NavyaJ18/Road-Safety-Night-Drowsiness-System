@@ -70,5 +70,18 @@ MAR < 0.60  → No Yawn
 
 ```text
 EAR >= 0.30        → Eyes Open
+---
+
+## ⏱️ PERCLOS
+
+PERCLOS (Percentage of Eye Closure) represents the proportion of a defined observation period during which the driver's eyes are considered closed.
+
+The project maintains a rolling observation window and calculates the percentage of frames classified as having closed eyes.
+
+### Current Configuration
+
+```text
+PERCLOS Window     = 90 seconds
+PERCLOS Threshold  = 80%
 0.18 <= EAR < 0.30 → Partially Closed
 EAR < 0.18         → Eyes Closed
