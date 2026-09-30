@@ -271,3 +271,13 @@ PS2 Project/
     ├── udp_client.py
     ├── sensor_simulator.py
     └── sensor_data.tsv
+---
+
+## ▶️ How to Run
+
+### 1. Run the UDP Server
+
+Open a terminal in the `UDP_Test` directory:
+
+```bash
+python udp_server.py
