@@ -212,3 +212,18 @@ The UDP sensor receiver tracks additional network information for each received 
 Sequence numbers allow the receiver to identify gaps between consecutive packets.
 
 Communication latency is estimated by comparing the source timestamp with the packet receive time.
+---
+
+## 🧪 Multi-Sensor Simulation
+
+Before connecting physical ESP32 sensor nodes, the system uses a Python-based sensor simulator to test the network architecture.
+
+The simulator represents multiple sensor devices and periodically sends sensor measurements to the UDP receiver.
+
+The current simulation includes example streams for:
+
+- Heart rate
+- SpO₂
+- GPS speed
+
+Each simulated device maintains its own sequence number.
