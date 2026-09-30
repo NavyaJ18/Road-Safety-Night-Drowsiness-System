@@ -35,3 +35,25 @@ The current system uses multiple behavioural parameters to analyze driver alertn
 - Blink rate
 - Yawning status
 - Overall drowsiness status
+
+---
+
+## 👁️ Eye Aspect Ratio (EAR)
+
+Eye Aspect Ratio (EAR) is a geometric measure used to estimate the degree of eye openness from facial landmarks.
+
+It is calculated using the vertical and horizontal distances between selected eye landmarks:
+
+\[
+EAR = \frac{||p_2-p_6|| + ||p_3-p_5||}
+{2||p_1-p_4||}
+\]
+
+A higher EAR generally represents a more open eye, while a lower EAR represents reduced eye opening.
+
+### Current Project Thresholds
+
+```text
+EAR >= 0.30        → Eyes Open
+0.18 <= EAR < 0.30 → Partially Closed
+EAR < 0.18         → Eyes Closed
