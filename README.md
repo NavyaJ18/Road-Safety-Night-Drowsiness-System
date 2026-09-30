@@ -116,5 +116,25 @@ The classification is intended as a project-level detection mechanism and is not
 ### Current Configuration
 
 ```text
+---
+
+## 📷 Computer Vision Pipeline
+
+The current vision pipeline follows these general steps:
+
+1. Capture frames from the webcam.
+2. Detect facial landmarks.
+3. Extract relevant eye landmarks.
+4. Calculate left-eye and right-eye EAR.
+5. Calculate the average EAR.
+6. Extract mouth landmarks.
+7. Calculate MAR.
+8. Determine eye state.
+9. Detect blink events.
+10. Calculate blink rate.
+11. Maintain the PERCLOS observation window.
+12. Determine the current drowsiness status.
+13. Record the calculated parameters.
+14. Display the results on the monitoring interface.
 Blink Rate Window       = 60 seconds
 Blink Rate Threshold    = 10 blinks/min
