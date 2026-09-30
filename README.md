@@ -161,3 +161,35 @@ The dashboard provides monitoring and analysis of:
 - Total recorded observations
 
 The dashboard also provides graphical analysis of parameter changes over time and allows recorded data to be downloaded.
+---
+
+## 📡 UDP Sensor Network
+
+The project includes a UDP-based communication layer for receiving data from multiple sensor nodes.
+
+UDP was selected for the prototype sensor network because it provides lightweight datagram-based communication with low communication overhead.
+
+Each transmitted packet contains structured information describing the sensor measurement.
+
+### Packet Information
+
+The current packet structure contains:
+
+- Device ID
+- Sensor ID
+- Sequence number
+- Source timestamp
+- Sensor value
+- Measurement unit
+
+Example packet structure:
+
+```json
+{
+    "device_id": "ESP32_01",
+    "sensor_id": "heart_rate",
+    "sequence": 1,
+    "timestamp": 0,
+    "value": 75,
+    "unit": "bpm"
+}
