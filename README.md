@@ -1,58 +1,23 @@
 # 🚗 Driver Drowsiness Detection and Road Safety Monitoring System
 
-A real time computer vision-based system designed to monitor driver alertness and identify potential signs of drowsiness. The project analyzes facial features through a live camera feed and calculates multiple parameters associated with driver fatigue.
+A real-time computer vision-based system designed to monitor driver alertness and identify potential signs of drowsiness.
+
+The system analyzes facial features through a live camera feed and calculates multiple behavioural parameters associated with driver fatigue. The project also includes a monitoring dashboard for visualization, data logging, and analysis.
 
 ## 📌 Project Overview
 
-Driver drowsiness is a significant road safety concern, particularly during long distance and night time driving. This project aims to detect behavioural indicators of fatigue using facial landmark analysis.
+Driver drowsiness is an important road-safety concern, particularly during long-distance and night-time driving. Reduced alertness can affect reaction time, attention, and driving performance.
 
-The system currently monitors:
+This project focuses on detecting behavioural indicators of drowsiness using facial landmark analysis and continuously monitoring relevant parameters.
 
-- 👁️ Eye Aspect Ratio (EAR)
-- 😮 Mouth Aspect Ratio (MAR)
-- ⏱️ PERCLOS
-- 👀 Eye state classification
-- 🥱 Yawning detection
-- 📊 Timestamp-based data logging
-- 📈 Data visualization through a dashboard
+## 🎯 Project Objectives
 
-The system is designed to be further extended for nighttime road-safety experiments and additional posture analysis.
-
----
-
-## 🔍 Parameters Used
-
-### 1. Eye Aspect Ratio (EAR)
-
-EAR measures the openness of the eyes using facial landmarks.
-
-\[
-EAR = \frac{||p_2-p_6|| + ||p_3-p_5||}
-{2||p_1-p_4||}
-\]
-
-Current threshold:
-
-```text
-EAR Threshold = 0.30
-
----
-```markdown
----
-
-## 🔧 Current System Components
-
-The current implementation includes:
-
-- Webcam-based facial landmark detection
-- Eye Aspect Ratio (EAR) calculation
-- Mouth Aspect Ratio (MAR) calculation
-- PERCLOS-based eye-closure analysis
-- Blink rate monitoring
-- Eye state classification
-- Yawning detection
-- Timestamp-based data logging
-- Streamlit dashboard for parameter monitoring and visualization
-- UDP-based sensor communication
-- Multi-sensor data simulation
-- Sensor data logging with sequence numbers and latency tracking
+- Detect potential signs of driver drowsiness using computer vision.
+- Monitor eye and mouth-related facial parameters.
+- Analyze prolonged eye closure using PERCLOS.
+- Monitor blink behaviour.
+- Detect yawning behaviour.
+- Record detected parameters with timestamps.
+- Visualize recorded data through an interactive dashboard.
+- Develop a foundation for integration with additional sensors.
+- Explore network-based sensor data acquisition using UDP communication.
