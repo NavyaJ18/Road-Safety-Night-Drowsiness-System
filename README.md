@@ -138,3 +138,26 @@ The current vision pipeline follows these general steps:
 14. Display the results on the monitoring interface.
 Blink Rate Window       = 60 seconds
 Blink Rate Threshold    = 10 blinks/min
+---
+
+## 📊 Monitoring Dashboard
+
+A Streamlit-based dashboard is used to visualize the recorded drowsiness parameters.
+
+### Drowsiness Detection View
+
+The dashboard provides monitoring and analysis of:
+
+- Average EAR
+- Left-eye EAR
+- Right-eye EAR
+- MAR
+- PERCLOS
+- Blink rate
+- Eye status
+- Yawning status
+- Blink status
+- Overall drowsiness status
+- Total recorded observations
+
+The dashboard also provides graphical analysis of parameter changes over time and allows recorded data to be downloaded.
