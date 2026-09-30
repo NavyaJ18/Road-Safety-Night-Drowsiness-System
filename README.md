@@ -193,3 +193,22 @@ Example packet structure:
     "value": 75,
     "unit": "bpm"
 }
+---
+
+## 📡 Network Monitoring
+
+The UDP sensor receiver tracks additional network information for each received packet.
+
+### Monitored Network Parameters
+
+- Sequence number
+- Packet loss
+- Source timestamp
+- Receive timestamp
+- Communication latency
+- Device ID
+- Sensor ID
+
+Sequence numbers allow the receiver to identify gaps between consecutive packets.
+
+Communication latency is estimated by comparing the source timestamp with the packet receive time.
