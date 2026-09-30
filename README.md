@@ -35,3 +35,22 @@ Current threshold:
 
 ```text
 EAR Threshold = 0.30
+
+---
+
+## 🔧 Current System Components
+
+The current implementation includes:
+
+- Webcam-based facial landmark detection
+- Eye Aspect Ratio (EAR) calculation
+- Mouth Aspect Ratio (MAR) calculation
+- PERCLOS-based eye-closure analysis
+- Blink rate monitoring
+- Eye state classification
+- Yawning detection
+- Timestamp-based data logging
+- Streamlit dashboard for parameter monitoring and visualization
+- UDP-based sensor communication
+- Multi-sensor data simulation
+- Sensor data logging with sequence numbers and latency tracking
