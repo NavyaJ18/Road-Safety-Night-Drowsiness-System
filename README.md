@@ -85,3 +85,18 @@ PERCLOS Window     = 90 seconds
 PERCLOS Threshold  = 80%
 0.18 <= EAR < 0.30 → Partially Closed
 EAR < 0.18         → Eyes Closed
+---
+
+## 👀 Blink Rate
+
+The system monitors transitions between eye states to identify blink events.
+
+A blink is detected when the eye state changes from open to closed and subsequently returns to open.
+
+The detected blink events are maintained over a rolling time window.
+
+### Current Configuration
+
+```text
+Blink Rate Window       = 60 seconds
+Blink Rate Threshold    = 10 blinks/min
