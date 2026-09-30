@@ -248,3 +248,26 @@ The logged information includes:
 | Packet_Loss | Detected packet loss |
 
 The recorded data can subsequently be used for analysis and visualization.
+---
+
+## 📁 Project Structure
+
+```text
+PS2 Project/
+│
+├── dashboard.py
+├── detection.py
+├── detection_perclos.py
+├── drowsiness_rainbow.tsv
+├── drowsiness_data.csv
+├── mar_data.csv
+├── ear.py
+├── mar.py
+├── mar2.py
+├── face_landmarker.task
+│
+└── UDP_Test/
+    ├── udp_server.py
+    ├── udp_client.py
+    ├── sensor_simulator.py
+    └── sensor_data.tsv
