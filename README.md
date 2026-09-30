@@ -52,6 +52,21 @@ EAR = \frac{||p_2-p_6|| + ||p_3-p_5||}
 A higher EAR generally represents a more open eye, while a lower EAR represents reduced eye opening.
 
 ### Current Project Thresholds
+---
+
+## 😮 Mouth Aspect Ratio (MAR)
+
+Mouth Aspect Ratio (MAR) is used to estimate the degree of mouth opening from facial landmarks.
+
+The implementation uses multiple vertical mouth-opening measurements and normalizes them using the horizontal mouth width.
+
+The current implementation uses three vertical mouth measurements to calculate the average mouth opening relative to mouth width.
+
+### Current Threshold
+
+```text
+MAR >= 0.60 → Yawning Detected
+MAR < 0.60  → No Yawn
 
 ```text
 EAR >= 0.30        → Eyes Open
