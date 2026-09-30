@@ -21,3 +21,17 @@ This project focuses on detecting behavioural indicators of drowsiness using fac
 - Visualize recorded data through an interactive dashboard.
 - Develop a foundation for integration with additional sensors.
 - Explore network-based sensor data acquisition using UDP communication.
+
+---
+
+## 🔍 Parameters Used
+
+The current system uses multiple behavioural parameters to analyze driver alertness:
+
+- Eye Aspect Ratio (EAR)
+- Mouth Aspect Ratio (MAR)
+- PERCLOS
+- Eye state
+- Blink rate
+- Yawning status
+- Overall drowsiness status
