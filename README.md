@@ -2,13 +2,19 @@
 
 A real-time computer vision-based system designed to monitor driver alertness and identify potential signs of drowsiness.
 
-The system analyzes facial features through a live camera feed and calculates multiple behavioural parameters associated with driver fatigue. The project also includes a monitoring dashboard for visualization, data logging, and analysis.
+The system analyzes facial features through a live camera feed and calculates multiple behavioural parameters associated with driver fatigue. A Streamlit-based dashboard is used for visualization, monitoring, and data logging.
+
+---
 
 ## 📌 Project Overview
 
-Driver drowsiness is an important road-safety concern, particularly during long-distance and night-time driving. Reduced alertness can affect reaction time, attention, and driving performance.
+Driver drowsiness is an important road-safety concern, particularly during long-distance and night-time driving. Reduced alertness can affect attention and driving performance.
 
 This project focuses on detecting behavioural indicators of drowsiness using facial landmark analysis and continuously monitoring relevant parameters.
+
+The current implementation combines computer vision, data logging, dashboard visualization, and a prototype UDP-based sensor communication layer.
+
+---
 
 ## 🎯 Project Objectives
 
@@ -18,266 +24,84 @@ This project focuses on detecting behavioural indicators of drowsiness using fac
 - Monitor blink behaviour.
 - Detect yawning behaviour.
 - Record detected parameters with timestamps.
-- Visualize recorded data through an interactive dashboard.
-- Develop a foundation for integration with additional sensors.
-- Explore network-based sensor data acquisition using UDP communication.
+- Visualize recorded parameters through an interactive dashboard.
+- Provide a foundation for integration with additional sensors.
+- Develop a prototype for network-based sensor data acquisition.
+- Monitor communication parameters such as latency and packet loss.
 
 ---
 
 ## 🔍 Parameters Used
 
-The current system uses multiple behavioural parameters to analyze driver alertness:
+The current system monitors the following parameters:
 
-- Eye Aspect Ratio (EAR)
-- Mouth Aspect Ratio (MAR)
-- PERCLOS
-- Eye state
-- Blink rate
-- Yawning status
-- Overall drowsiness status
+- 👁️ Eye Aspect Ratio (EAR)
+- 😮 Mouth Aspect Ratio (MAR)
+- ⏱️ PERCLOS
+- 👀 Eye-state classification
+- 👁️ Blink rate
+- 🥱 Yawning status
+- 🧠 Overall drowsiness status
+- 🕒 Timestamp information
 
 ---
 
-## 👁️ Eye Aspect Ratio (EAR)
+## 🛠️ Technology Stack
 
-Eye Aspect Ratio (EAR) is a geometric measure used to estimate the degree of eye openness from facial landmarks.
+### Programming Language
 
-It is calculated using the vertical and horizontal distances between selected eye landmarks:
+- Python
 
-\[
-EAR = \frac{||p_2-p_6|| + ||p_3-p_5||}
-{2||p_1-p_4||}
-\]
+### Computer Vision
 
-A higher EAR generally represents a more open eye, while a lower EAR represents reduced eye opening.
+- OpenCV
+- MediaPipe Face Landmarker
 
-### Current Project Thresholds
+### Data Processing
+
+- Pandas
+- Tab-separated data logging
+
+### Dashboard
+
+- Streamlit
+
+### Communication
+
+- UDP sockets
+- JSON-based sensor packets
+
+### Development Tools
+
+- Visual Studio Code
+- Git
+- GitHub
+
 ---
 
-## 😮 Mouth Aspect Ratio (MAR)
+## 📊 System Overview
 
-Mouth Aspect Ratio (MAR) is used to estimate the degree of mouth opening from facial landmarks.
+The system consists of two main monitoring components.
 
-The implementation uses multiple vertical mouth-opening measurements and normalizes them using the horizontal mouth width.
+### 🧠 Drowsiness Detection
 
-The current implementation uses three vertical mouth measurements to calculate the average mouth opening relative to mouth width.
-
-### Current Threshold
+The computer-vision pipeline processes a live camera feed and extracts facial landmarks to calculate:
 
 ```text
-MAR >= 0.60 → Yawning Detected
-MAR < 0.60  → No Yawn
-
-```text
-EAR >= 0.30        → Eyes Open
----
-
-## ⏱️ PERCLOS
-
-PERCLOS (Percentage of Eye Closure) represents the proportion of a defined observation period during which the driver's eyes are considered closed.
-
-The project maintains a rolling observation window and calculates the percentage of frames classified as having closed eyes.
-
-### Current Configuration
-
-```text
-PERCLOS Window     = 90 seconds
-PERCLOS Threshold  = 80%
-0.18 <= EAR < 0.30 → Partially Closed
-EAR < 0.18         → Eyes Closed
----
-
-## 👀 Blink Rate
-
-The system monitors transitions between eye states to identify blink events.
-
-A blink is detected when the eye state changes from open to closed and subsequently returns to open.
-
-The detected blink events are maintained over a rolling time window.
----
-
-## 🧠 Drowsiness Classification
-
-The system combines multiple detected parameters to determine the current behavioural status.
-
-The current classification logic prioritizes prolonged eye closure and then evaluates other detected conditions.
-
-### Current Status Categories
-
-- `NORMAL`
-- `EYES CLOSED`
-- `YAWNING DETECTED`
-- `DROWSY`
-
-PERCLOS is used as a longer-duration indicator, while EAR provides instantaneous eye-state information.
-
-The classification is intended as a project-level detection mechanism and is not a medical diagnostic system.
-
-### Current Configuration
-
-```text
----
-
-## 📷 Computer Vision Pipeline
-
-The current vision pipeline follows these general steps:
-
-1. Capture frames from the webcam.
-2. Detect facial landmarks.
-3. Extract relevant eye landmarks.
-4. Calculate left-eye and right-eye EAR.
-5. Calculate the average EAR.
-6. Extract mouth landmarks.
-7. Calculate MAR.
-8. Determine eye state.
-9. Detect blink events.
-10. Calculate blink rate.
-11. Maintain the PERCLOS observation window.
-12. Determine the current drowsiness status.
-13. Record the calculated parameters.
-14. Display the results on the monitoring interface.
-Blink Rate Window       = 60 seconds
-Blink Rate Threshold    = 10 blinks/min
----
-
-## 📊 Monitoring Dashboard
-
-A Streamlit-based dashboard is used to visualize the recorded drowsiness parameters.
-
-### Drowsiness Detection View
-
-The dashboard provides monitoring and analysis of:
-
-- Average EAR
-- Left-eye EAR
-- Right-eye EAR
-- MAR
-- PERCLOS
-- Blink rate
-- Eye status
-- Yawning status
-- Blink status
-- Overall drowsiness status
-- Total recorded observations
-
-The dashboard also provides graphical analysis of parameter changes over time and allows recorded data to be downloaded.
----
-
-## 📡 UDP Sensor Network
-
-The project includes a UDP-based communication layer for receiving data from multiple sensor nodes.
-
-UDP was selected for the prototype sensor network because it provides lightweight datagram-based communication with low communication overhead.
-
-Each transmitted packet contains structured information describing the sensor measurement.
-
-### Packet Information
-
-The current packet structure contains:
-
-- Device ID
-- Sensor ID
-- Sequence number
-- Source timestamp
-- Sensor value
-- Measurement unit
-
-Example packet structure:
-
-```json
-{
-    "device_id": "ESP32_01",
-    "sensor_id": "heart_rate",
-    "sequence": 1,
-    "timestamp": 0,
-    "value": 75,
-    "unit": "bpm"
-}
----
-
-## 📡 Network Monitoring
-
-The UDP sensor receiver tracks additional network information for each received packet.
-
-### Monitored Network Parameters
-
-- Sequence number
-- Packet loss
-- Source timestamp
-- Receive timestamp
-- Communication latency
-- Device ID
-- Sensor ID
-
-Sequence numbers allow the receiver to identify gaps between consecutive packets.
-
-Communication latency is estimated by comparing the source timestamp with the packet receive time.
----
-
-## 🧪 Multi-Sensor Simulation
-
-Before connecting physical ESP32 sensor nodes, the system uses a Python-based sensor simulator to test the network architecture.
-
-The simulator represents multiple sensor devices and periodically sends sensor measurements to the UDP receiver.
-
-The current simulation includes example streams for:
-
-- Heart rate
-- SpO₂
-- GPS speed
-
-Each simulated device maintains its own sequence number.
----
-
-## 📝 Sensor Data Logging
-
-Received sensor measurements are recorded in a tab-separated data file.
-
-The logged information includes:
-
-| Field | Description |
-|---|---|
-| Receive_Timestamp | Time at which the packet was received |
-| Device_ID | Identifier of the sensor device |
-| Sensor_ID | Identifier of the sensor |
-| Sequence | Packet sequence number |
-| Source_Timestamp | Timestamp generated by the source |
-| Value | Sensor measurement |
-| Unit | Measurement unit |
-| Latency_ms | Estimated communication latency |
-| Packet_Loss | Detected packet loss |
-
-The recorded data can subsequently be used for analysis and visualization.
----
-
-## 📁 Project Structure
-
-```text
-PS2 Project/
-│
-├── dashboard.py
-├── detection.py
-├── detection_perclos.py
-├── drowsiness_rainbow.tsv
-├── drowsiness_data.csv
-├── mar_data.csv
-├── ear.py
-├── mar.py
-├── mar2.py
-├── face_landmarker.task
-│
-└── UDP_Test/
-    ├── udp_server.py
-    ├── udp_client.py
-    ├── sensor_simulator.py
-    └── sensor_data.tsv
----
-
-## ▶️ How to Run
-
-### 1. Run the UDP Server
-
-Open a terminal in the `UDP_Test` directory:
-
-```bash
-python udp_server.py
+Webcam
+   ↓
+Face Landmark Detection
+   ↓
+Eye and Mouth Landmarks
+   ↓
+EAR + MAR
+   ↓
+Eye State + Yawning
+   ↓
+Blink Rate + PERCLOS
+   ↓
+Drowsiness Status
+   ↓
+Data Logging
+   ↓
+Dashboard
