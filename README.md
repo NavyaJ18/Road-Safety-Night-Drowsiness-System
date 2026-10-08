@@ -105,3 +105,41 @@ Drowsiness Status
 Data Logging
    ↓
 Dashboard
+
+### 📡 Sensor Network
+
+The system also includes a prototype distributed sensor network for acquiring additional physiological, vehicle, motion, GPS, and environmental parameters.
+
+The sensor network is designed around multiple ESP32-S3 nodes connected to a central Raspberry Pi 5.
+
+```text
+Physiological Sensors
+        ↓
+   ESP32-S3 #1
+        │
+        │
+Vehicle / Motion Sensors
+        ↓
+   ESP32-S3 #2
+        │
+        │
+GPS / Environmental Sensors
+        ↓
+   ESP32-S3 #3
+        │
+        │
+        └──────────────┐
+                       ↓
+                 Wi-Fi / UDP
+                       ↓
+                Raspberry Pi 5
+                       ↓
+              Data Aggregation
+                       ↓
+          Validation & Synchronization
+                       ↓
+                Sensor Fusion
+                       ↓
+              Drowsiness Analysis
+                       ↓
+                  Dashboard
