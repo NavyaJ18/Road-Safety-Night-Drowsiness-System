@@ -260,3 +260,22 @@ Sequence Number + Timestamp
 Raspberry Pi 5
         ↓
 Packet Validation
+
+---
+
+## 🧠 Drowsiness Detection Parameters
+
+The computer-vision subsystem uses facial landmark measurements to identify behavioural indicators associated with driver drowsiness.
+
+The current implementation combines Eye Aspect Ratio (EAR), Mouth Aspect Ratio (MAR), PERCLOS, blink rate, eye-state classification and yawning detection.
+
+### 👁️ Eye Aspect Ratio (EAR)
+
+Eye Aspect Ratio is used to estimate the degree of eye opening or closure.
+
+The system calculates EAR independently for the left and right eyes and then uses the average value for overall eye-state classification.
+
+```text
+        Vertical Eye Distances
+EAR = ───────────────────────────
+        Horizontal Eye Distance
