@@ -234,3 +234,29 @@ Facial Landmark Detection
 EAR / MAR / PERCLOS / Blink Rate
    ↓
 Drowsiness Analysis
+---
+
+## ⚡ Latency and Synchronization Design
+
+Low-latency communication is an important requirement for a driver-monitoring system because sensor information from different sources needs to be processed together.
+
+The prototype uses UDP-based communication between the ESP32-S3 sensor nodes and the Raspberry Pi 5.
+
+### 📡 UDP Communication
+
+Each ESP32-S3 node transmits sensor measurements to the Raspberry Pi using UDP packets.
+
+```text
+ESP32-S3 Sensor Node
+        ↓
+   Data Acquisition
+        ↓
+Sequence Number + Timestamp
+        ↓
+      UDP Packet
+        ↓
+      Wi-Fi
+        ↓
+Raspberry Pi 5
+        ↓
+Packet Validation
