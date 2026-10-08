@@ -170,3 +170,67 @@ MAX30102 ──┐
 GSR / EDA ─┼──→ ESP32-S3 #1 ──→ Wi-Fi / UDP
            │
 AD8232 ────┘
+---
+
+## 🔧 Hardware and Sensor Specifications
+
+The prototype hardware is organized into three ESP32-S3 sensor nodes and one Raspberry Pi 5 central processing unit. Each node is assigned a specific group of sensors based on their function and physical placement.
+
+### 🧩 Core Processing Hardware
+
+| Hardware | Quantity | Purpose |
+|---|---:|---|
+| ESP32-S3-DevKitC-1 N8R8 | 3 | Distributed sensor acquisition and wireless communication |
+| Raspberry Pi 5 8GB | 1 | Central data aggregation, processing, synchronization and sensor fusion |
+| IR / Night-Vision USB Camera | 1 | Driver facial monitoring under low-light conditions |
+| IR Illuminator | 1 | Additional illumination for night-time facial monitoring |
+
+### 🧠 Physiological Sensors
+
+These sensors are connected to **ESP32-S3 Node 1**.
+
+| Sensor | Parameter | Interface | Purpose |
+|---|---|---|---|
+| MAX30102 | Heart rate and SpO₂ | I²C | Monitor cardiovascular and oxygen-related parameters |
+| GSR / EDA Sensor | Skin conductance | Analog | Monitor changes in electrodermal activity |
+| AD8232 | ECG signal | Analog | Acquire ECG-related electrical activity |
+
+These measurements provide additional physiological information that can complement the computer-vision-based drowsiness indicators.
+
+### 🚗 Vehicle and Motion Sensors
+
+These components are connected to **ESP32-S3 Node 2**.
+
+| Sensor / Interface | Parameter | Interface | Purpose |
+|---|---|---|---|
+| MPU6050 | Acceleration and angular velocity | I²C | Monitor vehicle motion, vibration and movement |
+| OBD-II / CAN Interface | Vehicle parameters | CAN / serial interface | Acquire supported vehicle information from the vehicle network |
+
+The availability of OBD-II parameters depends on the specific vehicle and its supported diagnostic data.
+
+### 📍 GPS and Environmental Sensors
+
+These sensors are connected to **ESP32-S3 Node 3**.
+
+| Sensor | Parameter | Interface | Purpose |
+|---|---|---|---|
+| NEO-6M | Position, GPS speed and time | UART | Provide positioning and movement information |
+| DS18B20 | Temperature | 1-Wire | Monitor environmental temperature |
+| BH1750 | Ambient light level | I²C | Record lighting conditions around the driver |
+
+The ambient-light measurement is particularly relevant to the night-time monitoring objective because it provides information about the lighting conditions during operation.
+
+### 📷 Driver Monitoring Camera
+
+The vision subsystem uses a dedicated IR / night-vision camera positioned toward the driver.
+
+```text
+Driver
+   ↓
+IR / Night-Vision Camera
+   ↓
+Facial Landmark Detection
+   ↓
+EAR / MAR / PERCLOS / Blink Rate
+   ↓
+Drowsiness Analysis
