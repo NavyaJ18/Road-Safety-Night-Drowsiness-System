@@ -15,35 +15,25 @@ MODEL_PATH = "face_landmarker.task"
 
 # EAR SETTINGS
 EAR_THRESHOLD = 0.30
-
-# Additional threshold for fully closed eyes
 EYES_CLOSED_THRESHOLD = 0.18
 
-
 # MAR SETTINGS
-# This is a normalized MAR threshold.
-# You should calibrate it based on your webcam results.
 MAR_THRESHOLD = 0.60
 
-
 # PERCLOS SETTINGS
-PERCLOS_WINDOW = 90.0          # 90 seconds
-PERCLOS_THRESHOLD = 80.0       # 80 percent
-
+PERCLOS_WINDOW = 90.0
+PERCLOS_THRESHOLD = 80.0
 
 # BLINK RATE SETTINGS
-BLINK_RATE_THRESHOLD = 10.0    # 10 blinks per minute
-BLINK_WINDOW = 60.0            # 60 seconds
-
+BLINK_RATE_THRESHOLD = 10.0
+BLINK_WINDOW = 60.0
 
 # ============================================================
-# CSV SETTINGS
+# TSV SETTINGS
 # ============================================================
 
-# NEW FILE
 CSV_FILE = "drowsiness_rainbow.tsv"
-
-SAVE_INTERVAL = 1.0            # Save every 1 second
+SAVE_INTERVAL = 1.0
 
 
 # ============================================================
@@ -56,7 +46,6 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 FaceLandmarker = mp.tasks.vision.FaceLandmarker
 FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
 
-
 options = FaceLandmarkerOptions(
     base_options=BaseOptions(
         model_asset_path=MODEL_PATH
@@ -67,7 +56,7 @@ options = FaceLandmarkerOptions(
 
 
 # ============================================================
-# CSV HEADER
+# TSV HEADER
 # ============================================================
 
 CSV_HEADER = [
@@ -87,11 +76,8 @@ CSV_HEADER = [
 
 
 # ============================================================
-# CSV INITIALIZATION
+# TSV INITIALIZATION
 # ============================================================
-
-# Create a fresh file if it does not exist
-# or if it is empty.
 
 if not os.path.exists(CSV_FILE) or os.path.getsize(CSV_FILE) == 0:
 
@@ -123,7 +109,6 @@ LEFT_EYE = [
     153,
     144
 ]
-
 
 RIGHT_EYE = [
     362,
@@ -176,32 +161,19 @@ def calculate_ear(landmarks, eye_points):
     p5 = landmarks[eye_points[4]]
     p6 = landmarks[eye_points[5]]
 
-
-    # Standard Eye Aspect Ratio formula
-    #
-    # EAR =
-    # (|p2-p6| + |p3-p5|)
-    # --------------------
-    #      2|p1-p4|
-
     vertical_1 = distance(p2, p6)
-
     vertical_2 = distance(p3, p5)
 
     horizontal = distance(p1, p4)
 
-
     if horizontal == 0:
-
         return 0.0
-
 
     ear = (
         vertical_1 + vertical_2
     ) / (
         2.0 * horizontal
     )
-
 
     return ear
 
@@ -212,33 +184,20 @@ def calculate_ear(landmarks, eye_points):
 
 def calculate_mar(landmarks):
 
-    """
-    Normalized Mouth Aspect Ratio.
-
-    MAR =
-    average vertical mouth opening
-    --------------------------------
-    mouth width
-    """
-
-
     opening_1 = distance(
         landmarks[UPPER_LIP_1],
         landmarks[LOWER_LIP_1]
     )
-
 
     opening_2 = distance(
         landmarks[UPPER_LIP_2],
         landmarks[LOWER_LIP_2]
     )
 
-
     opening_3 = distance(
         landmarks[UPPER_LIP_3],
         landmarks[LOWER_LIP_3]
     )
-
 
     average_opening = (
         opening_1 +
@@ -246,20 +205,15 @@ def calculate_mar(landmarks):
         opening_3
     ) / 3.0
 
-
     mouth_width = distance(
         landmarks[MOUTH_LEFT],
         landmarks[MOUTH_RIGHT]
     )
 
-
     if mouth_width == 0:
-
         return 0.0
 
-
     mar = average_opening / mouth_width
-
 
     return mar
 
@@ -288,11 +242,9 @@ def draw_text(frame, text, position, color):
 
 cap = cv2.VideoCapture(0)
 
-
 if not cap.isOpened():
 
     print("ERROR: Cannot access webcam.")
-
     exit()
 
 
@@ -304,9 +256,6 @@ print("Saving data to:", os.path.abspath(CSV_FILE))
 # PERCLOS DATA
 # ============================================================
 
-# Stores:
-# (timestamp, eyes_closed_boolean)
-
 perclos_data = deque()
 
 
@@ -314,31 +263,23 @@ perclos_data = deque()
 # BLINK RATE DATA
 # ============================================================
 
-# Stores timestamps of complete blinks.
-
 blink_data = deque()
-
-
-# Used to detect one complete blink.
-#
-# False = eyes were previously open
-# True  = eyes were previously closed
 
 previous_eyes_closed = False
 
 
 # ============================================================
-# CSV SAVING TIMER
+# TSV SAVING TIMER
 # ============================================================
 
 last_save_time = 0
 
 
 # ============================================================
-# VIDEO TIMESTAMP
+# MONOTONIC VIDEO TIMER
 # ============================================================
 
-start_time = time.time()
+start_time = time.monotonic()
 
 
 # ============================================================
@@ -347,63 +288,56 @@ start_time = time.time()
 
 with FaceLandmarker.create_from_options(options) as landmarker:
 
-
     while True:
 
-
         success, frame = cap.read()
-
 
         if not success:
 
             print("ERROR: Cannot read webcam.")
-
             break
 
 
-        # ----------------------------------------------------
+        # ====================================================
         # MIRROR FRAME
-        # ----------------------------------------------------
+        # ====================================================
 
         frame = cv2.flip(frame, 1)
-
 
         frame_height, frame_width = frame.shape[:2]
 
 
-        # ----------------------------------------------------
-        # CURRENT TIME
-        # ----------------------------------------------------
+        # ====================================================
+        # CURRENT MONOTONIC TIME
+        # ====================================================
 
-        current_time = time.time()
+        current_time = time.monotonic()
 
         elapsed_time = current_time - start_time
 
 
-        # ----------------------------------------------------
+        # ====================================================
         # CONVERT IMAGE FOR MEDIAPIPE
-        # ----------------------------------------------------
+        # ====================================================
 
         rgb_frame = cv2.cvtColor(
             frame,
             cv2.COLOR_BGR2RGB
         )
 
-
         mp_image = mp.Image(
             image_format=mp.ImageFormat.SRGB,
             data=rgb_frame
         )
-
 
         timestamp_ms = int(
             elapsed_time * 1000
         )
 
 
-        # ----------------------------------------------------
+        # ====================================================
         # FACE DETECTION
-        # ----------------------------------------------------
+        # ====================================================
 
         result = landmarker.detect_for_video(
             mp_image,
@@ -411,9 +345,9 @@ with FaceLandmarker.create_from_options(options) as landmarker:
         )
 
 
-        # ----------------------------------------------------
+        # ====================================================
         # DEFAULT VALUES
-        # ----------------------------------------------------
+        # ====================================================
 
         left_ear = 0.0
         right_ear = 0.0
@@ -436,16 +370,14 @@ with FaceLandmarker.create_from_options(options) as landmarker:
 
         if result.face_landmarks:
 
-
             face_landmarks = result.face_landmarks[0]
 
 
             # ------------------------------------------------
-            # CONVERT NORMALIZED LANDMARKS TO PIXELS
+            # CONVERT LANDMARKS TO PIXELS
             # ------------------------------------------------
 
             landmarks = []
-
 
             for landmark in face_landmarks:
 
@@ -512,7 +444,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
 
                 eyes_closed = False
 
-
             elif average_ear >= EYES_CLOSED_THRESHOLD:
 
                 eye_status = "PARTIALLY CLOSED"
@@ -524,7 +455,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
                 )
 
                 eyes_closed = False
-
 
             else:
 
@@ -543,16 +473,11 @@ with FaceLandmarker.create_from_options(options) as landmarker:
             # BLINK DETECTION
             # =================================================
 
-            # Complete blink:
-            #
-            # OPEN → CLOSED → OPEN
-
             if previous_eyes_closed and not eyes_closed:
 
                 blink_data.append(
                     elapsed_time
                 )
-
 
             previous_eyes_closed = eyes_closed
 
@@ -570,7 +495,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
                     0,
                     255
                 )
-
 
             else:
 
@@ -633,7 +557,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
 
             ]
 
-
             for point in mouth_points:
 
                 x, y = landmarks[point]
@@ -646,6 +569,10 @@ with FaceLandmarker.create_from_options(options) as landmarker:
                     -1
                 )
 
+
+        # ====================================================
+        # NO FACE DETECTED
+        # ====================================================
 
         else:
 
@@ -672,14 +599,12 @@ with FaceLandmarker.create_from_options(options) as landmarker:
 
         while (
             blink_data
-            and elapsed_time - blink_data[0] > BLINK_WINDOW
+            and
+            elapsed_time - blink_data[0] > BLINK_WINDOW
         ):
 
             blink_data.popleft()
 
-
-        # Since the window is exactly 60 seconds,
-        # number of blinks = blinks per minute.
 
         blink_rate = float(
             len(blink_data)
@@ -695,7 +620,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
                 0,
                 255
             )
-
 
         else:
 
@@ -720,8 +644,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
         )
 
 
-        # Remove data older than 90 seconds.
-
         while (
             perclos_data
             and
@@ -735,23 +657,16 @@ with FaceLandmarker.create_from_options(options) as landmarker:
         if len(perclos_data) > 0:
 
             closed_count = sum(
-
                 1
                 for timestamp, closed
                 in perclos_data
-
                 if closed
-
             )
 
-
             perclos = (
-
                 closed_count /
                 len(perclos_data)
-
             ) * 100.0
-
 
         else:
 
@@ -772,7 +687,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
                 255
             )
 
-
         elif eyes_closed:
 
             drowsiness_status = "EYES CLOSED"
@@ -783,7 +697,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
                 255
             )
 
-
         elif yawn_status == "YAWNING":
 
             drowsiness_status = "YAWNING DETECTED"
@@ -793,7 +706,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
                 165,
                 255
             )
-
 
         else:
 
@@ -817,14 +729,12 @@ with FaceLandmarker.create_from_options(options) as landmarker:
             eye_color
         )
 
-
         draw_text(
             frame,
             f"RIGHT EAR: {right_ear:.3f}",
             (20, 65),
             eye_color
         )
-
 
         draw_text(
             frame,
@@ -833,14 +743,12 @@ with FaceLandmarker.create_from_options(options) as landmarker:
             eye_color
         )
 
-
         draw_text(
             frame,
             f"EYE STATUS: {eye_status}",
             (20, 125),
             eye_color
         )
-
 
         draw_text(
             frame,
@@ -849,14 +757,12 @@ with FaceLandmarker.create_from_options(options) as landmarker:
             yawn_color
         )
 
-
         draw_text(
             frame,
             f"YAWN STATUS: {yawn_status}",
             (20, 200),
             yawn_color
         )
-
 
         draw_text(
             frame,
@@ -865,11 +771,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
             drowsiness_color
         )
 
-
-        # ====================================================
-        # BLINK RATE DISPLAY
-        # ====================================================
-
         draw_text(
             frame,
             f"BLINK RATE: {blink_rate:.1f}/min",
@@ -877,14 +778,12 @@ with FaceLandmarker.create_from_options(options) as landmarker:
             blink_color
         )
 
-
         draw_text(
             frame,
             f"BLINK STATUS: {blink_status}",
             (20, 335),
             blink_color
         )
-
 
         draw_text(
             frame,
@@ -899,7 +798,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
         # ====================================================
 
         if current_time - last_save_time >= SAVE_INTERVAL:
-
 
             timestamp_string = time.strftime(
                 "%Y-%m-%d %H:%M:%S"
@@ -949,12 +847,7 @@ with FaceLandmarker.create_from_options(options) as landmarker:
                     "ERROR: CSV column mismatch!"
                 )
 
-
             else:
-
-                # TAB is the delimiter.
-                # This is what Rainbow CSV will use
-                # to identify each individual column.
 
                 with open(
                     CSV_FILE,
@@ -993,7 +886,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
 
         key = cv2.waitKey(1) & 0xFF
 
-
         if key == ord("q"):
 
             break
@@ -1006,7 +898,6 @@ with FaceLandmarker.create_from_options(options) as landmarker:
 cap.release()
 
 cv2.destroyAllWindows()
-
 
 print("Program stopped.")
 
