@@ -143,3 +143,30 @@ GPS / Environmental Sensors
               Drowsiness Analysis
                        ↓
                   Dashboard
+
+
+
+## 📡 Sensor Network Architecture
+
+The sensor network is organized into three ESP32-S3 nodes based on the type and physical location of the sensors.
+
+This distributed arrangement reduces unnecessary wiring and allows different groups of sensors to be acquired locally before transmitting their measurements to the central processing unit.
+
+### 🧠 ESP32-S3 Node 1 — Physiological Monitoring
+
+The first ESP32-S3 node is responsible for acquiring physiological parameters related to driver state.
+
+| Sensor | Parameter | Interface |
+|---|---|---|
+| MAX30102 | Heart rate and SpO₂ | I²C |
+| GSR / EDA | Skin conductance | Analog |
+| AD8232 | ECG signal | Analog |
+
+The node performs local sensor acquisition and transmits the collected measurements to the Raspberry Pi through the wireless network.
+
+```text
+MAX30102 ──┐
+           │
+GSR / EDA ─┼──→ ESP32-S3 #1 ──→ Wi-Fi / UDP
+           │
+AD8232 ────┘
