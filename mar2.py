@@ -24,6 +24,13 @@ MAR_THRESHOLD = 0.60
 PERCLOS_WINDOW = 90.0
 PERCLOS_THRESHOLD = 80.0
 
+# Minimum valid observation coverage required before
+# PERCLOS can be used for drowsiness classification.
+PERCLOS_MIN_COVERAGE = 0.80
+
+# Ignore unusually large gaps between consecutive frames.
+MAX_VALID_FRAME_GAP = 0.25
+
 # BLINK RATE SETTINGS
 BLINK_RATE_THRESHOLD = 10.0
 BLINK_WINDOW = 60.0
@@ -256,7 +263,13 @@ print("Saving data to:", os.path.abspath(CSV_FILE))
 # PERCLOS DATA
 # ============================================================
 
+# Stores (interval_start, interval_end, eyes_closed).
+# Only intervals with a detected face are stored.
 perclos_data = deque()
+
+previous_frame_time = None
+previous_frame_detected = False
+previous_frame_eyes_closed = False
 
 
 # ============================================================
@@ -362,6 +375,7 @@ with FaceLandmarker.create_from_options(options) as landmarker:
         drowsiness_status = "NORMAL"
 
         eyes_closed = False
+        face_detected = False
 
 
         # ====================================================
@@ -369,6 +383,8 @@ with FaceLandmarker.create_from_options(options) as landmarker:
         # ====================================================
 
         if result.face_landmarks:
+
+            face_detected = True
 
             face_landmarks = result.face_landmarks[0]
 
@@ -633,39 +649,90 @@ with FaceLandmarker.create_from_options(options) as landmarker:
 
 
         # ====================================================
-        # PERCLOS CALCULATION
+        # TIME-WEIGHTED PERCLOS CALCULATION
         # ====================================================
 
-        perclos_data.append(
-            (
-                elapsed_time,
-                eyes_closed
-            )
-        )
+        # Attribute the interval since the previous frame to
+        # the previous frame's eye state, but only if a face
+        # was detected in that previous frame.
 
+        if previous_frame_time is not None:
+
+            frame_interval = elapsed_time - previous_frame_time
+
+            if (
+                previous_frame_detected
+                and
+                0 < frame_interval <= MAX_VALID_FRAME_GAP
+            ):
+
+                perclos_data.append(
+                    (
+                        previous_frame_time,
+                        elapsed_time,
+                        previous_frame_eyes_closed
+                    )
+                )
+
+
+        # Update previous-frame information.
+
+        previous_frame_time = elapsed_time
+        previous_frame_detected = face_detected
+        previous_frame_eyes_closed = eyes_closed
+
+
+        # Calculate the current rolling-window boundary.
+
+        window_start = elapsed_time - PERCLOS_WINDOW
+
+
+        # Remove intervals completely outside the window.
 
         while (
             perclos_data
             and
-            elapsed_time - perclos_data[0][0]
-            > PERCLOS_WINDOW
+            perclos_data[0][1] <= window_start
         ):
 
             perclos_data.popleft()
 
 
-        if len(perclos_data) > 0:
+        # Calculate observed-eye duration and closed-eye duration.
 
-            closed_count = sum(
-                1
-                for timestamp, closed
-                in perclos_data
-                if closed
+        observed_duration = 0.0
+        closed_duration = 0.0
+
+        for interval_start, interval_end, closed in perclos_data:
+
+            overlap_start = max(
+                interval_start,
+                window_start
             )
 
+            overlap_end = min(
+                interval_end,
+                elapsed_time
+            )
+
+            duration = max(
+                0.0,
+                overlap_end - overlap_start
+            )
+
+            observed_duration += duration
+
+            if closed:
+
+                closed_duration += duration
+
+
+        # Calculate PERCLOS using elapsed time, not frame count.
+
+        if observed_duration > 0:
+
             perclos = (
-                closed_count /
-                len(perclos_data)
+                closed_duration / observed_duration
             ) * 100.0
 
         else:
@@ -673,11 +740,33 @@ with FaceLandmarker.create_from_options(options) as landmarker:
             perclos = 0.0
 
 
+        # Percentage of the rolling window with valid observations.
+
+        perclos_coverage = min(
+            observed_duration / PERCLOS_WINDOW,
+            1.0
+        )
+
+        perclos_ready = (
+            perclos_coverage >= PERCLOS_MIN_COVERAGE
+        )
+
+
         # ====================================================
         # DROWSINESS STATUS
         # ====================================================
 
-        if perclos >= PERCLOS_THRESHOLD:
+        if not face_detected:
+
+            drowsiness_status = "FACE NOT DETECTED"
+
+            drowsiness_color = (
+                255,
+                255,
+                255
+            )
+
+        elif perclos_ready and perclos >= PERCLOS_THRESHOLD:
 
             drowsiness_status = "DROWSY"
 
@@ -766,7 +855,7 @@ with FaceLandmarker.create_from_options(options) as landmarker:
 
         draw_text(
             frame,
-            f"PERCLOS (90s): {perclos:.2f}%",
+            f"PERCLOS: {perclos:.2f}% | Coverage: {perclos_coverage * 100:.1f}%",
             (20, 245),
             drowsiness_color
         )
