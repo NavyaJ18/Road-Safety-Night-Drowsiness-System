@@ -21,6 +21,14 @@ total_rejected = 0
 total_duplicates = 0
 total_out_of_order = 0
 
+# ---------------------------------------
+# Network jitter tracking
+# ---------------------------------------
+
+last_arrival_time = {}
+last_interarrival = {}
+sensor_jitter = {}
+
 
 def validate_packet(packet):
     """Validate the structure and data types of a sensor packet."""
@@ -116,6 +124,38 @@ last_sequence = {}
 
 
 # ---------------------------------------
+# Calculate network jitter
+# ---------------------------------------
+
+def calculate_jitter(sensor_key, arrival_time):
+
+    jitter = sensor_jitter.get(sensor_key, 0.0)
+
+    if sensor_key in last_arrival_time:
+
+        interarrival = (
+            arrival_time - last_arrival_time[sensor_key]
+        )
+
+        if sensor_key in last_interarrival:
+
+            variation = abs(
+                interarrival - last_interarrival[sensor_key]
+            )
+
+            # Exponential smoothing of inter-arrival variation
+            jitter += (variation * 1000 - jitter) / 16
+
+        last_interarrival[sensor_key] = interarrival
+
+    last_arrival_time[sensor_key] = arrival_time
+
+    sensor_jitter[sensor_key] = jitter
+
+    return jitter
+
+
+# ---------------------------------------
 # Display packet delivery statistics
 # ---------------------------------------
 
@@ -130,6 +170,13 @@ def display_statistics():
     else:
         delivery_rate = 0
 
+    if sensor_jitter:
+        average_jitter = (
+            sum(sensor_jitter.values()) / len(sensor_jitter)
+        )
+    else:
+        average_jitter = 0
+
     print("\n" + "=" * 60)
     print("             NETWORK STATISTICS")
     print("=" * 60)
@@ -140,6 +187,7 @@ def display_statistics():
     print(f"Out-of-order packets   : {total_out_of_order}")
     print(f"Rejected packets       : {total_rejected}")
     print(f"Packet delivery rate   : {delivery_rate:.2f}%")
+    print(f"Average network jitter : {average_jitter:.2f} ms")
 
     print("=" * 60 + "\n")
 
@@ -172,6 +220,7 @@ while True:
         unit = packet["unit"]
 
         receive_time = time.time()
+        arrival_time = time.monotonic()
 
         total_received += 1
 
@@ -184,12 +233,21 @@ while True:
         ) * 1000
 
         # ---------------------------------------
+        # Calculate network jitter
+        # ---------------------------------------
+
+        sensor_key = (device_id, sensor_id)
+
+        jitter = calculate_jitter(
+            sensor_key,
+            arrival_time
+        )
+
+        # ---------------------------------------
         # Calculate packet loss per sensor
         # ---------------------------------------
 
         packet_loss = 0
-
-        sensor_key = (device_id, sensor_id)
 
         if sensor_key not in last_sequence:
 
@@ -272,7 +330,8 @@ while True:
             f"{sensor_id:<15} | "
             f"{str(value):<8} {unit:<8} | "
             f"Seq: {sequence:<5} | "
-            f"Latency: {latency:.2f} ms"
+            f"Latency: {latency:.2f} ms | "
+            f"Jitter: {jitter:.2f} ms"
         )
 
     except KeyboardInterrupt:
