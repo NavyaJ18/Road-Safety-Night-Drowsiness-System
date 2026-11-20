@@ -146,7 +146,11 @@ while True:
 
         packet_loss = 0
 
-        if device_id in last_sequence:
+        if device_id not in last_sequence:
+
+            last_sequence[device_id] = sequence
+
+        else:
 
             previous_sequence = last_sequence[device_id]
 
@@ -161,14 +165,18 @@ while True:
                     f"lost from {device_id}"
                 )
 
-            elif sequence <= previous_sequence:
+                last_sequence[device_id] = sequence
+
+            elif sequence > previous_sequence:
+
+                last_sequence[device_id] = sequence
+
+            else:
 
                 print(
                     f"WARNING: duplicate/out-of-order "
                     f"packet from {device_id}"
                 )
-
-        last_sequence[device_id] = sequence
 
         # ---------------------------------------
         # Record data
