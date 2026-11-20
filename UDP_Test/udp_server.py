@@ -29,6 +29,15 @@ last_arrival_time = {}
 last_interarrival = {}
 sensor_jitter = {}
 
+# ---------------------------------------
+# Sensor stale-data monitoring
+# ---------------------------------------
+
+STALE_TIMEOUT = 3.0
+
+last_seen_time = {}
+stale_sensors = set()
+
 
 def validate_packet(packet):
     """Validate the structure and data types of a sensor packet."""
@@ -84,12 +93,14 @@ def validate_packet(packet):
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_socket.bind((HOST, PORT))
+server_socket.settimeout(1.0)
 
 print("=" * 60)
 print("              UDP SENSOR AGGREGATOR")
 print("=" * 60)
 print(f"Listening on UDP port {PORT}")
 print(f"Recording data to: {DATA_FILE}")
+print(f"Sensor stale timeout: {STALE_TIMEOUT} seconds")
 print()
 
 
@@ -143,7 +154,6 @@ def calculate_jitter(sensor_key, arrival_time):
                 interarrival - last_interarrival[sensor_key]
             )
 
-            # Exponential smoothing of inter-arrival variation
             jitter += (variation * 1000 - jitter) / 16
 
         last_interarrival[sensor_key] = interarrival
@@ -153,6 +163,33 @@ def calculate_jitter(sensor_key, arrival_time):
     sensor_jitter[sensor_key] = jitter
 
     return jitter
+
+
+# ---------------------------------------
+# Check for stale sensors
+# ---------------------------------------
+
+def check_stale_sensors():
+
+    current_time = time.monotonic()
+
+    for sensor_key, last_seen in last_seen_time.items():
+
+        elapsed_time = current_time - last_seen
+
+        if elapsed_time > STALE_TIMEOUT:
+
+            if sensor_key not in stale_sensors:
+
+                stale_sensors.add(sensor_key)
+
+                device_id, sensor_id = sensor_key
+
+                print(
+                    f"\nWARNING: STALE SENSOR DETECTED | "
+                    f"{device_id} | {sensor_id} | "
+                    f"No data for {elapsed_time:.2f} seconds"
+                )
 
 
 # ---------------------------------------
@@ -188,6 +225,8 @@ def display_statistics():
     print(f"Rejected packets       : {total_rejected}")
     print(f"Packet delivery rate   : {delivery_rate:.2f}%")
     print(f"Average network jitter : {average_jitter:.2f} ms")
+    print(f"Total sensors detected : {len(last_seen_time)}")
+    print(f"Stale sensors          : {len(stale_sensors)}")
 
     print("=" * 60 + "\n")
 
@@ -242,6 +281,21 @@ while True:
             sensor_key,
             arrival_time
         )
+
+        # ---------------------------------------
+        # Update sensor last-seen time
+        # ---------------------------------------
+
+        last_seen_time[sensor_key] = arrival_time
+
+        if sensor_key in stale_sensors:
+
+            stale_sensors.remove(sensor_key)
+
+            print(
+                f"\nSENSOR RECOVERED | "
+                f"{device_id} | {sensor_id}"
+            )
 
         # ---------------------------------------
         # Calculate packet loss per sensor
@@ -333,6 +387,11 @@ while True:
             f"Latency: {latency:.2f} ms | "
             f"Jitter: {jitter:.2f} ms"
         )
+
+    except socket.timeout:
+
+        check_stale_sensors()
+        continue
 
     except KeyboardInterrupt:
 
