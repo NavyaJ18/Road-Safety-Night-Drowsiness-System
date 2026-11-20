@@ -1,13 +1,68 @@
+
 import socket
 import json
 import time
 import csv
 import os
+import math
 
 HOST = "0.0.0.0"
 PORT = 5000
 
 DATA_FILE = "sensor_data.tsv"
+
+
+def validate_packet(packet):
+    """Validate the structure and data types of a sensor packet."""
+
+    if not isinstance(packet, dict):
+        raise ValueError("Packet must be a JSON object")
+
+    required_fields = [
+        "device_id",
+        "sensor_id",
+        "sequence",
+        "timestamp",
+        "value",
+        "unit"
+    ]
+
+    for field in required_fields:
+        if field not in packet:
+            raise ValueError(f"Missing required field: {field}")
+
+    if not isinstance(packet["device_id"], str) or not packet["device_id"].strip():
+        raise ValueError("Invalid device_id")
+
+    if not isinstance(packet["sensor_id"], str) or not packet["sensor_id"].strip():
+        raise ValueError("Invalid sensor_id")
+
+    if not isinstance(packet["unit"], str):
+        raise ValueError("Invalid unit")
+
+    if type(packet["sequence"]) is not int or packet["sequence"] < 0:
+        raise ValueError("Sequence must be a non-negative integer")
+
+    if isinstance(packet["timestamp"], bool):
+        raise ValueError("Invalid timestamp")
+
+    if not isinstance(packet["timestamp"], (int, float)):
+        raise ValueError("Timestamp must be numeric")
+
+    if not math.isfinite(packet["timestamp"]):
+        raise ValueError("Timestamp must be finite")
+
+    if isinstance(packet["value"], bool):
+        raise ValueError("Invalid sensor value")
+
+    if not isinstance(packet["value"], (int, float)):
+        raise ValueError("Sensor value must be numeric")
+
+    if not math.isfinite(packet["value"]):
+        raise ValueError("Sensor value must be finite")
+
+    return True
+
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_socket.bind((HOST, PORT))
@@ -57,6 +112,12 @@ while True:
         data, address = server_socket.recvfrom(1024)
 
         packet = json.loads(data.decode("utf-8"))
+
+        # ---------------------------------------
+        # Validate incoming packet
+        # ---------------------------------------
+
+        validate_packet(packet)
 
         # ---------------------------------------
         # Read packet
