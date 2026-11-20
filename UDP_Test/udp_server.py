@@ -11,6 +11,16 @@ PORT = 5000
 
 DATA_FILE = "sensor_data.tsv"
 
+# ---------------------------------------
+# Packet delivery statistics
+# ---------------------------------------
+
+total_received = 0
+total_lost = 0
+total_rejected = 0
+total_duplicates = 0
+total_out_of_order = 0
+
 
 def validate_packet(packet):
     """Validate the structure and data types of a sensor packet."""
@@ -105,19 +115,50 @@ if not os.path.exists(DATA_FILE):
 last_sequence = {}
 
 
+# ---------------------------------------
+# Display packet delivery statistics
+# ---------------------------------------
+
+def display_statistics():
+
+    total_expected = total_received + total_lost
+
+    if total_expected > 0:
+        delivery_rate = (
+            total_received / total_expected
+        ) * 100
+    else:
+        delivery_rate = 0
+
+    print("\n" + "=" * 60)
+    print("             NETWORK STATISTICS")
+    print("=" * 60)
+
+    print(f"Valid packets received : {total_received}")
+    print(f"Packets lost           : {total_lost}")
+    print(f"Duplicate packets      : {total_duplicates}")
+    print(f"Out-of-order packets   : {total_out_of_order}")
+    print(f"Rejected packets       : {total_rejected}")
+    print(f"Packet delivery rate   : {delivery_rate:.2f}%")
+
+    print("=" * 60 + "\n")
+
+
 while True:
 
     try:
 
         data, address = server_socket.recvfrom(1024)
 
-        packet = json.loads(data.decode("utf-8"))
+        try:
+            packet = json.loads(data.decode("utf-8"))
+            validate_packet(packet)
 
-        # ---------------------------------------
-        # Validate incoming packet
-        # ---------------------------------------
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as e:
 
-        validate_packet(packet)
+            total_rejected += 1
+            print("Invalid packet:", e)
+            continue
 
         # ---------------------------------------
         # Read packet
@@ -131,6 +172,8 @@ while True:
         unit = packet["unit"]
 
         receive_time = time.time()
+
+        total_received += 1
 
         # ---------------------------------------
         # Calculate latency
@@ -162,6 +205,8 @@ while True:
                     sequence - previous_sequence - 1
                 )
 
+                total_lost += packet_loss
+
                 print(
                     f"WARNING: {packet_loss} packet(s) "
                     f"lost from {device_id} - {sensor_id}"
@@ -174,6 +219,11 @@ while True:
                 last_sequence[sensor_key] = sequence
 
             else:
+
+                if sequence == previous_sequence:
+                    total_duplicates += 1
+                else:
+                    total_out_of_order += 1
 
                 print(
                     f"WARNING: duplicate/out-of-order "
@@ -228,8 +278,10 @@ while True:
     except KeyboardInterrupt:
 
         print("\nUDP server stopped.")
+        display_statistics()
         break
 
     except Exception as e:
 
         print("Invalid packet:", e)
+        total_rejected += 1
