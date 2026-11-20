@@ -99,7 +99,7 @@ if not os.path.exists(DATA_FILE):
 
 
 # ---------------------------------------
-# Store sequence numbers
+# Store sequence numbers per sensor
 # ---------------------------------------
 
 last_sequence = {}
@@ -141,18 +141,20 @@ while True:
         ) * 1000
 
         # ---------------------------------------
-        # Calculate packet loss
+        # Calculate packet loss per sensor
         # ---------------------------------------
 
         packet_loss = 0
 
-        if device_id not in last_sequence:
+        sensor_key = (device_id, sensor_id)
 
-            last_sequence[device_id] = sequence
+        if sensor_key not in last_sequence:
+
+            last_sequence[sensor_key] = sequence
 
         else:
 
-            previous_sequence = last_sequence[device_id]
+            previous_sequence = last_sequence[sensor_key]
 
             if sequence > previous_sequence + 1:
 
@@ -162,20 +164,20 @@ while True:
 
                 print(
                     f"WARNING: {packet_loss} packet(s) "
-                    f"lost from {device_id}"
+                    f"lost from {device_id} - {sensor_id}"
                 )
 
-                last_sequence[device_id] = sequence
+                last_sequence[sensor_key] = sequence
 
             elif sequence > previous_sequence:
 
-                last_sequence[device_id] = sequence
+                last_sequence[sensor_key] = sequence
 
             else:
 
                 print(
                     f"WARNING: duplicate/out-of-order "
-                    f"packet from {device_id}"
+                    f"packet from {device_id} - {sensor_id}"
                 )
 
         # ---------------------------------------
